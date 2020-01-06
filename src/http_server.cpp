@@ -22,12 +22,18 @@ HTTPServer::HTTPServer()
     : backend{PORT}
     , event_source{nullptr}
     , reboot_requested{false}
+    , event_timer{}
 {
     if (MOUNT_SPIFFS) {
         if (!SPIFFS.begin(true)) {
             error_print("Error mounting SPI Flash File System");
         }
     }
+    event_timer.attach_ms(HEARTBEAT_INTERVAL, on_timer_event, this);
+}
+
+HTTPServer::~HTTPServer() {
+    event_timer.detach();
 }
 
 // Set an entry in the template processor string <=> string mapping 
@@ -45,13 +51,13 @@ void HTTPServer::activate_events_on(const char* endpoint) {
 }
 
 void HTTPServer::register_api_cb(const char* cmd_name,
-                                  CbStringT cmd_callback) {
+                                 CbStringT cmd_callback) {
     cmd_map[cmd_name] = cmd_callback;
     debug_print_sv("Registered String command: ", cmd_name);
 }
 
 void HTTPServer::register_api_cb(const char* cmd_name,
-                                  CbFloatT cmd_callback) {
+                                 CbFloatT cmd_callback) {
     cmd_map[cmd_name] = [cmd_callback](const String& value) {
         // Arduino String.toFloat() defaults to zero for invalid string, hmm...
         cmd_callback(value.toFloat());
@@ -60,7 +66,16 @@ void HTTPServer::register_api_cb(const char* cmd_name,
 }
 
 void HTTPServer::register_api_cb(const char* cmd_name,
-                                  CbVoidT cmd_callback) {
+                                 CbIntT cmd_callback) {
+    cmd_map[cmd_name] = [cmd_callback](const String& value) {
+        // Arduino String.toFloat() defaults to zero for invalid string, hmm...
+        cmd_callback(value.toInt());
+    };
+    debug_print_sv("Registered int command: ", cmd_name);
+}
+
+void HTTPServer::register_api_cb(const char* cmd_name,
+                                 CbVoidT cmd_callback) {
     cmd_map[cmd_name] = [cmd_callback](const String& value) {
         cmd_callback();
     };
@@ -72,24 +87,21 @@ void HTTPServer::begin() {
     backend.begin();
 }
 
+
+///////// HTTPServer:: private
+
 // Timer update for heartbeats, reboot etc
-void HTTPServer::update_timer(const unsigned long curr_time) {
-    if (SEND_HEARTBEATS && event_source != nullptr) {
-        static unsigned long ref_timestamp = 0;
-        if (curr_time - ref_timestamp > HEARTBEAT_INTERVAL) {
-            ref_timestamp = curr_time;
-            event_source->send("OK", "heartbeat", curr_time);
-        }
+// Static function wraps member function to obtain C API callback
+void HTTPServer::on_timer_event(HTTPServer* self) {
+    if (SEND_HEARTBEATS && self->event_source != nullptr) {
+        self->event_source->send("OK", "heartbeat");
     }
-    if (reboot_requested) {
+    if (self->reboot_requested) {
         debug_print("Rebooting...");
         delay(100);
         ESP.restart();
     }
 }
-
-
-///////// HTTPServer:: private
 
 // Sever-Sent Event Source
 void HTTPServer::register_sse_callbacks() {
@@ -102,7 +114,7 @@ void HTTPServer::register_sse_callbacks() {
         client->send("Hello Message from ESP32!", NULL, millis(), 1000);
     });
     // HTTP Basic Authentication
-    //if (use_auth) {
+    //if (USE_AUTH) {
     //    event_source.setAuthentication(http_user, http_pass);
     //}
     backend.addHandler(event_source);

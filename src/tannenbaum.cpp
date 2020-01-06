@@ -1,14 +1,18 @@
 #include <Arduino.h>
+#include <Ticker.h>
 
 #include "info_debug_error.h"
 #include "tannenbaum.hpp"
 #include "http_server.hpp"
+
 
 /////////// public
 
 Tannenbaum::Tannenbaum(HTTPServer& http_server, enum OP_MODES op_mode)
     // private
     : http_server{http_server}
+    , pattern_timer{}
+    , sensor_timer{}
     , op_mode{LARSON}
     , led_state_all_on{false}
     , pattern_interval{100}
@@ -25,6 +29,13 @@ Tannenbaum::Tannenbaum(HTTPServer& http_server, enum OP_MODES op_mode)
     }
     // Remote control interface
     setup_http_interface();
+    // Start timer for LED pattern updading
+    pattern_timer.attach_ms(pattern_interval, on_timer_event, this);
+    sensor_timer.attach_ms(1000, read_touch_interface);
+}
+
+Tannenbaum::~Tannenbaum() {
+    pattern_timer.detach();
 }
 
 void Tannenbaum::set_mode_larson() {
@@ -90,6 +101,8 @@ void Tannenbaum::increase_speed() {
     if (pattern_interval >= 2) {
         pattern_interval /= 2;
     }
+    pattern_timer.detach();
+    pattern_timer.attach_ms(pattern_interval, on_timer_event, this);
 }
 
 void Tannenbaum::decrease_speed() {
@@ -97,21 +110,8 @@ void Tannenbaum::decrease_speed() {
     if (pattern_interval < 4096) {
         pattern_interval *= 2;
     }
-}
-
-void Tannenbaum::update_timer(const unsigned long curr_time) {        
-    static unsigned long pattern_timestamp = millis();
-    if (curr_time - pattern_timestamp > pattern_interval) {
-        pattern_timestamp = curr_time;
-        // Call LED PWM pattern update
-        if (op_mode == LARSON) {
-            update_larson();
-        }  else if (op_mode == SPINNING) {
-            update_spinning();
-        } else if (op_mode == ALL_ON_OFF) {
-            update_all_on_off();
-        }
-    }
+    pattern_timer.detach();
+    pattern_timer.attach_ms(pattern_interval, on_timer_event, this);
 }
 
 ///////////// private
@@ -131,6 +131,17 @@ void Tannenbaum::setup_http_interface() {
     
     // Initial state
     http_server.set_template("ON_OFF_BTN_STATE", "btn_off");
+}
+
+void Tannenbaum::read_touch_interface() {
+    // FIXME DEBUG INACTIVE
+    return;
+    uint16_t btn_right = touchRead(TOUCH_RIGHT_PIN);
+    uint16_t btn_mid = touchRead(TOUCH_MIDDLE_PIN);
+    uint16_t btn_left = touchRead(TOUCH_LEFT_PIN);
+    info_print_sv("Btn right", btn_right);
+    info_print_sv("Btn mid", btn_mid);
+    info_print_sv("Btn left", btn_left);
 }
 
 void Tannenbaum::init_pwm_gpios() {
@@ -230,4 +241,16 @@ void Tannenbaum::update_all_on_off() {
     const uint8_t OFF = 255;
     uint8_t pwm_value = led_state_all_on ? ON : OFF;
     ledcWrite(0, pwm_value);
+}
+
+// Static function
+void Tannenbaum::on_timer_event(Tannenbaum* self) {
+    // Call LED PWM pattern update
+    if (self->op_mode == LARSON) {
+        self->update_larson();
+    }  else if (self->op_mode == SPINNING) {
+        self->update_spinning();
+    } else if (self->op_mode == ALL_ON_OFF) {
+        self->update_all_on_off();
+    }
 }

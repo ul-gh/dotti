@@ -10,6 +10,7 @@
 #include <functional>
 
 #include <Arduino.h>
+#include <Ticker.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 
@@ -17,6 +18,8 @@
 using CbStringT = std::function<void(const String& )>;
 // Callback function with float argument
 using CbFloatT = std::function<void(const float)>;
+// Callback function with integer argument
+using CbIntT = std::function<void(const int)>;
 // Callback function without arguments
 using CbVoidT = std::function<void(void)>;
 
@@ -40,7 +43,8 @@ public:
     // Polled in main loop
     bool reboot_requested;
     
-    HTTPServer();
+    HTTPServer(void);
+    ~HTTPServer();
 
     // Set an entry in the template processor string <=> string mapping 
     void set_template(const char* placeholder, const char* replacement);
@@ -55,16 +59,23 @@ public:
     void register_api_cb(const char* cmd_name, CbStringT cmd_callback);
     // Overload for float callbacks
     void register_api_cb(const char* cmd_name, CbFloatT cmd_callback);
+    // Overload for int callbacks
+    void register_api_cb(const char* cmd_name, CbIntT cmd_callback);
     // Overload for void callbacks
     void register_api_cb(const char* cmd_name, CbVoidT cmd_callback);
 
     // Start execution
     void begin();
 
-    // Timer update for heartbeats, reboot etc
-    void update_timer(const unsigned long curr_time);
 
 private:
+    // Async event timer
+    Ticker event_timer;
+
+    // Timer update for heartbeats, reboot etc
+    // Static function wraps member function to obtain C API callback
+    static void on_timer_event(HTTPServer* self);
+
     // Sever-Sent Event Source
     void register_sse_callbacks();
 

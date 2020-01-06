@@ -17,7 +17,7 @@ const char INDEX_HTML[] PROGMEM =
     "</head>"
     
     // Web Page Heading
-    "<body><h1>Dottis Tannenbaum!</h1>"
+    "<body><h1>Karlottas Tannenbaum!</h1>"
     "<p>Teilweise selbst gebastelt</p>"
     "<p><a href=\"/cmd?larson\"><button>Glen A. Larson</button></a></p>"
     "<p><a href=\"/cmd?spin\"><button>DURCHDREHEN!!!</button></a></p>"

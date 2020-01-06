@@ -1,6 +1,8 @@
 #ifndef __INFO_DEBUG_ERROR_H__
 #define __INFO_DEBUG_ERROR_H__
 
+#include <HardwareSerial.h>
+
 // Set to 1 to enable debug output
 #define DEBUG 1
 
