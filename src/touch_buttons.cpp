@@ -7,7 +7,6 @@
 #include "driver/touch_pad.h"
 #include "soc/rtc_cntl_reg.h"
 #include "soc/sens_reg.h"
-#include "touch_pad.h"
 
 #include "info_debug_error.h"
 #include "touch_buttons.hpp"
@@ -35,7 +34,7 @@ ReactiveTouch::ReactiveTouch()
         s_pad_activated[i] = false;
         s_pad_threshold[i] = THRESHOLD_INACTIVE;
         // Inizialization using the default constructor of std::function
-        s_pad_callback[i]{};
+        s_pad_callback[i] = {};
     }
 }
 
@@ -44,28 +43,32 @@ ReactiveTouch::~ReactiveTouch() {
 }
 
 void ReactiveTouch::configure_input(const int input_number,
-                                    const float threshold_percent,
+                                    const uint8_t threshold_percent,
                                     CallbackT callback) {
-
+    s_pad_threshold_percent[input_number] = threshold_percent;
+    s_pad_callback[input_number] = callback;
 }
 
 void ReactiveTouch::calibrate_thresholds() {
     uint16_t touch_value;
     for (int i=0; i<TOUCH_PAD_MAX; ++i) {
-        //read filtered value
-        touch_pad_read_filtered(static_cast<touch_pad_t>(i), &touch_value);
-        s_pad_init_val[i] = touch_value;
-        ESP_LOGI(TAG, "test init: touch pad [%d] val is %d", i, touch_value);
-        //set interrupt threshold.
-        uint16_t threshold = static_cast<uint32_t>(s_pad_init_val[i])
-                            * TOUCH_THRESH_PERCENT / 100;
-
+        if (s_pad_activated[i]) {
+            //read filtered value
+            touch_pad_read_filtered(static_cast<touch_pad_t>(i), &touch_value);
+            debug_print_sv("Current touch input: ", i);
+            debug_print_sv("touch pad val is: ", touch_value);
+            s_pad_threshold[i] = static_cast<uint32_t>(touch_value)
+                    * s_pad_threshold_percent[i] / 100;
+            debug_print_sv("threshold value is: ", s_pad_threshold[i]);
+        }
     }
 }
 
 void ReactiveTouch::begin() {
     for (int i=0; i<TOUCH_PAD_MAX; ++i) {
-        touch_pad_config(static_cast<touch_pad_t>(i), THRESHOLD_INACTIVE);
+        if (s_pad_activated[i]) {
+            touch_pad_config(static_cast<touch_pad_t>(i), THRESHOLD_INACTIVE);
+        }
     }
     // Initialize and start a software filter to detect slight change of capacitance.
     touch_pad_filter_start(FILTER_PERIOD);
@@ -84,7 +87,7 @@ void ReactiveTouch::diagnostics() {
         touch_pad_intr_enable();
         for (int i=0; i<TOUCH_PAD_MAX; ++i) {
             if (s_pad_activated[i] == true) {
-                ESP_LOGI(TAG, "T%d activated!", i);
+                info_print_sv("Pad activated!", i);
                 // Wait a while for the pad being released
                 vTaskDelay(200 / portTICK_PERIOD_MS);
                 // Clear information on pad activation
@@ -99,15 +102,17 @@ void ReactiveTouch::diagnostics() {
         touch_pad_intr_disable();
         touch_pad_clear_status();
         for (int i=0; i<TOUCH_PAD_MAX; ++i) {
-            uint16_t value = 0;
-            touch_pad_read_filtered(static_cast<touch_pad_t>(i), &value);
-            if (value < s_pad_init_val[i] * TOUCH_THRESH_PERCENT / 100) {
-                ESP_LOGI(TAG, "T%d activated!", i);
-                ESP_LOGI(TAG, "value: %d; init val: %d", value, s_pad_init_val[i]);
-                vTaskDelay(200 / portTICK_PERIOD_MS);
-                // Reset the counter to stop changing mode.
-                change_mode = 1;
-                show_message = 1;
+            if (s_pad_activated[i]) {
+                uint16_t value;
+                touch_pad_read_filtered(static_cast<touch_pad_t>(i), &value);
+                if (value < s_pad_threshold[i]) {
+                    info_print_sv("T%d activated!", i);
+                    info_print_sv("value: ", value);
+                    vTaskDelay(200 / portTICK_PERIOD_MS);
+                    // Reset the counter to stop changing mode.
+                    change_mode = 1;
+                    show_message = 1;
+                }
             }
         }
     }
@@ -119,8 +124,10 @@ void ReactiveTouch::diagnostics() {
     if (show_message++ % 300 == 0) {
         uint16_t value;
         for (int i=0; i<TOUCH_PAD_MAX; ++i) {
-            touch_pad_read_filtered(static_cast<touch_pad_t>(i), &value);
-            ESP_LOGI(TAG, "T%d value: %d", i, value);
+            if (s_pad_activated[i]) {
+                touch_pad_read_filtered(static_cast<touch_pad_t>(i), &value);
+                ESP_LOGI(TAG, "T%d value: %d", i, value);
+            }
         }
         ESP_LOGI(TAG, "Waiting for any pad being touched...");
     }
@@ -130,8 +137,10 @@ void ReactiveTouch::diagnostics() {
         filter_mode = !filter_mode;
         uint16_t value;
         for (int i=0; i<TOUCH_PAD_MAX; ++i) {
-            touch_pad_read_filtered(static_cast<touch_pad_t>(i), &value);
-            ESP_LOGI(TAG, "T%d value: %d", i, value);
+            if (s_pad_activated[i]) {
+                touch_pad_read_filtered(static_cast<touch_pad_t>(i), &value);
+                ESP_LOGI(TAG, "T%d value: %d", i, value);
+            }
         }
         ESP_LOGW(TAG, "Change mode...%s", filter_mode == 0? "interrupt mode": "filter mode");
     }
@@ -139,6 +148,7 @@ void ReactiveTouch::diagnostics() {
 
 //////// ReactiveTouch private:
 
+uint8_t ReactiveTouch::s_pad_threshold_percent[TOUCH_PAD_MAX];
 bool ReactiveTouch::s_pad_activated[TOUCH_PAD_MAX];
 uint16_t ReactiveTouch::s_pad_filtered_value[TOUCH_PAD_MAX];
 uint16_t ReactiveTouch::s_pad_threshold[TOUCH_PAD_MAX];

@@ -12,7 +12,7 @@ public:
     ReactiveTouch();
     virtual ~ReactiveTouch();
     void configure_input(const int input_number,
-                         const float threshold_percent,
+                         const uint8_t threshold_percent,
                          CallbackT callback = nullptr);
     void calibrate_thresholds();
     void begin();
@@ -20,8 +20,9 @@ public:
 
 private:
     Ticker event_timer;
+    static uint8_t s_pad_threshold_percent[TOUCH_PAD_MAX];
     static bool s_pad_activated[TOUCH_PAD_MAX];
-    static uint16_t s_pad_current_val[TOUCH_PAD_MAX];
+    static uint16_t s_pad_filtered_value[TOUCH_PAD_MAX];
     static uint16_t s_pad_threshold[TOUCH_PAD_MAX];
     static CallbackT s_pad_callback[TOUCH_PAD_MAX];
 
