@@ -21,7 +21,8 @@ public:
 private:
     Ticker event_timer;
     static uint8_t s_pad_threshold_percent[TOUCH_PAD_MAX];
-    static bool s_pad_activated[TOUCH_PAD_MAX];
+    static bool s_pad_enabled[TOUCH_PAD_MAX];
+    static bool s_pad_is_pressed[TOUCH_PAD_MAX];
     static uint16_t s_pad_filtered_value[TOUCH_PAD_MAX];
     static uint16_t s_pad_threshold[TOUCH_PAD_MAX];
     static CallbackT s_pad_callback[TOUCH_PAD_MAX];

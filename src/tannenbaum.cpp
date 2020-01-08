@@ -41,6 +41,7 @@ Tannenbaum::~Tannenbaum() {
 }
 
 void Tannenbaum::set_mode_larson() {
+    debug_print("New Operation Mode: Scanning Larson");
     op_mode = LARSON;
     // Attach GPIO pins to PWM channels
     ledcAttachPin(32, 0); // Links unten
@@ -58,6 +59,7 @@ void Tannenbaum::set_mode_larson() {
 }
 
 void Tannenbaum::set_mode_spinning() {
+    debug_print("New Operation Mode: Spinning");
     op_mode = SPINNING;
     // Attach GPIO pins to PWM channels
     ledcAttachPin(32, 0); // Links unten
@@ -75,6 +77,7 @@ void Tannenbaum::set_mode_spinning() {
 }
 
 void Tannenbaum::set_mode_all_on_off() {
+    debug_print("New Operation Mode: All on or all off");
     op_mode = ALL_ON_OFF;
     // Attach GPIO pins to PWM channels
     ledcAttachPin(32, 0); // Links unten
@@ -100,6 +103,7 @@ bool Tannenbaum::toggle_on_off_state() {
     } else {
         http_server.set_template("ON_OFF_BTN_STATE", "btn_off");
     }
+    debug_print_sv("Setting LED state to: ", led_state_all_on ? "ON" : "OFF");
     return led_state_all_on;
 }
 
@@ -132,25 +136,25 @@ void Tannenbaum::setup_http_interface() {
 }
 
 void Tannenbaum::setup_touch_buttons() {
-    buttons.configure_input(TOUCH_IO_RIGHT, TOUCH_THRESHOLD_PERCENT, [this](){
-        if (op_mode == ALL_ON_OFF) {
-            toggle_on_off_state();
-        } else {
-            increase_speed();
-        }
-    });
-    buttons.configure_input(TOUCH_IO_MIDDLE, TOUCH_THRESHOLD_PERCENT, [this](){
+    buttons.configure_input(TOUCH_IO_LEFT, TOUCH_THRESHOLD_PERCENT, [this](){
         if (op_mode == ALL_ON_OFF) {
             toggle_on_off_state();
         } else {
             decrease_speed();
         }
     });
-    buttons.configure_input(TOUCH_IO_LEFT, TOUCH_THRESHOLD_PERCENT, [this](){
+    buttons.configure_input(TOUCH_IO_MIDDLE, TOUCH_THRESHOLD_PERCENT, [this](){
+        if (op_mode == ALL_ON_OFF) {
+            toggle_on_off_state();
+        } else {
+            increase_speed();
+        }
+    });
+    buttons.configure_input(TOUCH_IO_RIGHT, TOUCH_THRESHOLD_PERCENT, [this](){
         switch (op_mode) {
-            case LARSON: op_mode = SPINNING; break;
-            case SPINNING: op_mode = ALL_ON_OFF; break;
-            case ALL_ON_OFF: op_mode = LARSON; break;
+            case LARSON: set_mode_spinning(); break;
+            case SPINNING: set_mode_all_on_off(); break;
+            case ALL_ON_OFF: set_mode_larson(); break;
         }
     });
     buttons.begin();

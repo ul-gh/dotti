@@ -10,7 +10,7 @@
 #define info_print(s) Serial.println(F(s))
 #define info_print_sv(s,v) do { Serial.print(F(s " ")); \
                                 Serial.println(v); } while (0)                           
-#define info_print_hex(s,v) do { Serial.print(F(s " 0X")); \
+#define info_print_hex(s,v) do { Serial.print(F(s " 0x")); \
                                   Serial.println(v, HEX); } while (0)
 
 #define debug_print(s) do { if (DEBUG) Serial.println(F(s)); } while (0)
