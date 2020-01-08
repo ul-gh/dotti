@@ -23,7 +23,7 @@ HTTPServer::HTTPServer()
     , event_source{nullptr}
     , reboot_requested{false}
     , event_timer{}
-{
+{   
     if (MOUNT_SPIFFS) {
         if (!SPIFFS.begin(true)) {
             error_print("Error mounting SPI Flash File System");

@@ -2,21 +2,22 @@
 #define __TANNENBAUM_HPP__
 
 #include "http_server.hpp"
-
-// LED PWM frequency
-#define PWM_FREQ 1000
-#define SENSOR_INTERVAL 1000
-
-#define TOUCH_RIGHT_PIN 15
-#define TOUCH_MIDDLE_PIN 12
-#define TOUCH_LEFT_PIN 13
-
-// Operation modes for the application
-enum OP_MODES{LARSON, SPINNING, ALL_ON_OFF};
+#include "touch_buttons.hpp"
 
 class Tannenbaum
 {
 public:
+    // LED PWM frequency
+    static constexpr double PWM_FREQ = 1000;
+    static constexpr uint8_t TOUCH_THRESHOLD_PERCENT = 94;
+
+    static constexpr int TOUCH_IO_RIGHT = 3; // GPIO 15
+    static constexpr int TOUCH_IO_MIDDLE = 5; // GPIO 12
+    static constexpr int TOUCH_IO_LEFT = 4; // GPIO 13
+
+    // Operation modes for the application
+    enum OP_MODES{LARSON, SPINNING, ALL_ON_OFF};
+
     Tannenbaum(HTTPServer& http_server, enum OP_MODES op_mode);
     ~Tannenbaum();
 
@@ -24,17 +25,22 @@ public:
     void set_mode_spinning();
     void set_mode_all_on_off();
 
+    void set_next_mode();
+
     bool toggle_on_off_state();
 
     void increase_speed();
     void decrease_speed();
 
 private:
+    // HTTP API server
     HTTPServer& http_server;
+
+    // Touch button interface
+    ReactiveTouch buttons;
 
     // Async event timers
     Ticker pattern_timer;
-    Ticker sensor_timer;
 
     // Operation mode
     enum OP_MODES op_mode;
@@ -44,7 +50,7 @@ private:
     unsigned long pattern_interval;
 
     void setup_http_interface();
-    static void read_touch_interface();
+    void setup_touch_buttons();
     void init_pwm_gpios();
 
     void update_larson();

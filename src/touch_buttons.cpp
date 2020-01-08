@@ -1,12 +1,12 @@
 //#include "esp_log.h"
-#include "esp32-hal-log.h"
+//#include "esp32-hal-log.h"
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+//#include "freertos/FreeRTOS.h"
+//#include "freertos/task.h"
 
-#include "driver/touch_pad.h"
-#include "soc/rtc_cntl_reg.h"
-#include "soc/sens_reg.h"
+//#include "driver/touch_pad.h"
+//#include "soc/rtc_cntl_reg.h"
+//#include "soc/sens_reg.h"
 
 #include "info_debug_error.h"
 #include "touch_buttons.hpp"
@@ -72,7 +72,8 @@ void ReactiveTouch::begin() {
     }
     // Initialize and start a software filter to detect slight change of capacitance.
     touch_pad_filter_start(FILTER_PERIOD);
-    // Set thresh hold
+    touch_pad_set_filter_read_cb(filter_read_cb);
+    // Set threshold
     calibrate_thresholds();
 
     event_timer.attach_ms(DISPATCH_CYCLE_TIME_MS, dispatch_callbacks, this);

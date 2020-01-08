@@ -3,7 +3,6 @@
 
 #include "info_debug_error.h"
 #include "tannenbaum.hpp"
-#include "http_server.hpp"
 
 
 /////////// public
@@ -11,8 +10,8 @@
 Tannenbaum::Tannenbaum(HTTPServer& http_server, enum OP_MODES op_mode)
     // private
     : http_server{http_server}
+    , buttons{}
     , pattern_timer{}
-    , sensor_timer{}
     , op_mode{LARSON}
     , led_state_all_on{false}
     , pattern_interval{100}
@@ -29,9 +28,12 @@ Tannenbaum::Tannenbaum(HTTPServer& http_server, enum OP_MODES op_mode)
     }
     // Remote control interface
     setup_http_interface();
+    // Initial state
+    http_server.set_template("ON_OFF_BTN_STATE", "btn_off");
+    // Local touch buttons interface
+    setup_touch_buttons();
     // Start timer for LED pattern updading
     pattern_timer.attach_ms(pattern_interval, on_timer_event, this);
-    sensor_timer.attach_ms(1000, read_touch_interface);
 }
 
 Tannenbaum::~Tannenbaum() {
@@ -93,6 +95,11 @@ bool Tannenbaum::toggle_on_off_state() {
     set_mode_all_on_off();
     led_state_all_on = !led_state_all_on;
     update_all_on_off();
+    if(led_state_all_on) {
+        http_server.set_template("ON_OFF_BTN_STATE", "");
+    } else {
+        http_server.set_template("ON_OFF_BTN_STATE", "btn_off");
+    }
     return led_state_all_on;
 }
 
@@ -119,29 +126,34 @@ void Tannenbaum::decrease_speed() {
 void Tannenbaum::setup_http_interface() {
     http_server.register_api_cb("larson", [this](){set_mode_larson();});
     http_server.register_api_cb("spin", [this](){set_mode_spinning();});
-    http_server.register_api_cb("on_off", [this](){
-        if(toggle_on_off_state()) {
-            http_server.set_template("ON_OFF_BTN_STATE", "");
-        } else {
-            http_server.set_template("ON_OFF_BTN_STATE", "btn_off");
-        }
-    });
+    http_server.register_api_cb("on_off", [this](){toggle_on_off_state();});
     http_server.register_api_cb("plus", [this](){increase_speed();});
     http_server.register_api_cb("minus", [this](){decrease_speed();});
-    
-    // Initial state
-    http_server.set_template("ON_OFF_BTN_STATE", "btn_off");
 }
 
-void Tannenbaum::read_touch_interface() {
-    // FIXME DEBUG INACTIVE
-    return;
-    uint16_t btn_right = touchRead(TOUCH_RIGHT_PIN);
-    uint16_t btn_mid = touchRead(TOUCH_MIDDLE_PIN);
-    uint16_t btn_left = touchRead(TOUCH_LEFT_PIN);
-    info_print_sv("Btn right", btn_right);
-    info_print_sv("Btn mid", btn_mid);
-    info_print_sv("Btn left", btn_left);
+void Tannenbaum::setup_touch_buttons() {
+    buttons.configure_input(TOUCH_IO_RIGHT, TOUCH_THRESHOLD_PERCENT, [this](){
+        if (op_mode == ALL_ON_OFF) {
+            toggle_on_off_state();
+        } else {
+            increase_speed();
+        }
+    });
+    buttons.configure_input(TOUCH_IO_MIDDLE, TOUCH_THRESHOLD_PERCENT, [this](){
+        if (op_mode == ALL_ON_OFF) {
+            toggle_on_off_state();
+        } else {
+            decrease_speed();
+        }
+    });
+    buttons.configure_input(TOUCH_IO_LEFT, TOUCH_THRESHOLD_PERCENT, [this](){
+        switch (op_mode) {
+            case LARSON: op_mode = SPINNING; break;
+            case SPINNING: op_mode = ALL_ON_OFF; break;
+            case ALL_ON_OFF: op_mode = LARSON; break;
+        }
+    });
+    buttons.begin();
 }
 
 void Tannenbaum::init_pwm_gpios() {
