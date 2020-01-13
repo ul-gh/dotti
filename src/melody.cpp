@@ -66,7 +66,7 @@ void MelodyPlayer::on_tone_timer(MelodyPlayer* self) {
         }
         // Queue is not empty:
         note = self->melody_queue.front();
-        self->melody_queue.pop();
+        self->melody_queue.pop_front();
         is_control_symbol = false;
         is_pause = false;
         switch (note) {

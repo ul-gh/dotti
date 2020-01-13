@@ -29,7 +29,7 @@ void setup() {
     //tannenbaum = new Tannenbaum{*http_server, Tannenbaum::LARSON};
     mplayer = new MelodyPlayer{audio_gpio, audio_pwm_channel};
     http_server->register_api_cb("play_some", [&](){
-        Melody melody{{C, D, E, P, C}};
+        Melody melody{C, D, E, P, C};
         mplayer->play(melody);
     });
 

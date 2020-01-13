@@ -1,7 +1,7 @@
 #ifndef MELODY_PLAYER_HPP__
 #define MELODY_PLAYER_HPP__
 
-#include <queue>
+#include <deque>
 #include <esp32-hal-ledc.h>
 #include <Ticker.h>
 
@@ -14,7 +14,7 @@
 using NoteT = enum {C, D, E, F, G, A, B, P, O_UP, O_DOWN, L1, L2, L4, L8};
 
 // Musical melody comprised of notes
-using Melody = std::queue<NoteT>;
+using Melody = std::deque<NoteT>;
 
 class MelodyPlayer {
 public:
