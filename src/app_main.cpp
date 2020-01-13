@@ -7,6 +7,7 @@
 #include "wifi_setup.hpp"
 #include "http_server.hpp"
 #include "tannenbaum.hpp"
+#include "melody.hpp"
 
 constexpr unsigned long serial_baudrate = 115200;
 
@@ -15,13 +16,21 @@ HTTPServer* http_server;
 
 Tannenbaum* tannenbaum;
 
+MelodyPlayer* mplayer;
+
 void setup() {
     //esp_log_level_set("*", ESP_LOG_DEBUG);
     Serial.begin(serial_baudrate);
     setup_wifi_station();
     delay(300);
     http_server = new HTTPServer{};
-    tannenbaum = new Tannenbaum{*http_server, Tannenbaum::LARSON};
+    //tannenbaum = new Tannenbaum{*http_server, Tannenbaum::LARSON};
+    mplayer = new MelodyPlayer{23, 15};
+    http_server->register_api_cb("play_some", [](){
+        Melody melody{{C, D, E, P, C}};
+        mplayer->play(melody);
+    });
+
 }
 
 void loop() {
