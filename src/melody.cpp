@@ -2,7 +2,7 @@
 #include "info_debug_error.h"
 
 MelodyPlayer::MelodyPlayer(uint8_t gpio_pin, uint8_t pwm_channel,
-                       uint32_t base_tempo_ms)
+                           uint32_t base_tempo_ms)
     : tone_timer{}
     , melody_queue{}
     , gpio_pin{gpio_pin}
@@ -53,7 +53,7 @@ void MelodyPlayer::on_tone_timer(MelodyPlayer* self) {
         repeat_note--;
         return;
     }
-    note_t api_note;
+    note_t api_note = NOTE_C;
     NoteT note;
     bool is_control_symbol;
     bool is_pause;

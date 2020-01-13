@@ -10,6 +10,8 @@
 #include "melody.hpp"
 
 constexpr unsigned long serial_baudrate = 115200;
+constexpr uint8_t audio_gpio = 23;
+constexpr uint8_t audio_pwm_channel = 15;
 
 // HTTP server provides REST API + HTML5 AJAX web interface on port 80
 HTTPServer* http_server;
@@ -25,8 +27,8 @@ void setup() {
     delay(300);
     http_server = new HTTPServer{};
     //tannenbaum = new Tannenbaum{*http_server, Tannenbaum::LARSON};
-    mplayer = new MelodyPlayer{23, 15};
-    http_server->register_api_cb("play_some", [](){
+    mplayer = new MelodyPlayer{audio_gpio, audio_pwm_channel};
+    http_server->register_api_cb("play_some", [&](){
         Melody melody{{C, D, E, P, C}};
         mplayer->play(melody);
     });

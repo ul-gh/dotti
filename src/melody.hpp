@@ -22,7 +22,7 @@ public:
 
     // base_tempo: Duration of an eighths note in milliseconds
     MelodyPlayer(uint8_t gpio_pin, uint8_t pwm_channel,
-               uint32_t base_tempo_ms=128);
+                 uint32_t base_tempo_ms=128);
     virtual ~MelodyPlayer();
 
     void play(Melody melody, uint8_t octave=4);
