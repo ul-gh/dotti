@@ -7,39 +7,31 @@
 #include "wifi_setup.hpp"
 #include "http_server.hpp"
 #include "tannenbaum.hpp"
-#include "melody.hpp"
 
 constexpr unsigned long serial_baudrate = 115200;
-constexpr uint8_t audio_gpio = 23;
-constexpr uint8_t audio_pwm_channel = 15;
 
 // HTTP server provides REST API + HTML5 AJAX web interface on port 80
 HTTPServer* http_server;
 
 Tannenbaum* tannenbaum;
 
-MelodyPlayer* mplayer;
-
 void setup() {
     //esp_log_level_set("*", ESP_LOG_DEBUG);
     Serial.begin(serial_baudrate);
-    setup_wifi_station();
+    //setup_wifi_station();
+    setup_wifi_hostap();
     delay(300);
     http_server = new HTTPServer{};
-    //tannenbaum = new Tannenbaum{*http_server, Tannenbaum::LARSON};
-    mplayer = new MelodyPlayer{audio_gpio, audio_pwm_channel};
-    http_server->register_api_cb("play_some", [&](){
-        Melody melody{C, D, E, P, C};
-        mplayer->play(melody);
-    });
-
+    tannenbaum = new Tannenbaum{*http_server, Tannenbaum::LARSON};
+    http_server->activate_events_on("/events");
+    http_server->begin();
 }
 
 void loop() {
-    static bool wifi_initialised = false;
-    if (!wifi_initialised && wifi_handle_state_change() == NEW_CONNECTION) {
-        http_server->activate_events_on("/events");
-        http_server->begin();
-        wifi_initialised = true;
-    }
+    //static bool wifi_initialised = false;
+    //if (!wifi_initialised && wifi_handle_state_change() == NEW_CONNECTION) {
+    //    http_server->activate_events_on("/events");
+    //    http_server->begin();
+    //    wifi_initialised = true;
+    //}
 }

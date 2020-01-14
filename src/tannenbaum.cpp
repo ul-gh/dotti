@@ -8,8 +8,10 @@
 /////////// public
 
 Tannenbaum::Tannenbaum(HTTPServer& http_server, enum OP_MODES op_mode)
+    // public
+    : mplayer{Tannenbaum::audio_gpio, Tannenbaum::audio_pwm_channel}
     // private
-    : http_server{http_server}
+    , http_server{http_server}
     , buttons{}
     , pattern_timer{}
     , tone_timer{}
@@ -35,6 +37,8 @@ Tannenbaum::Tannenbaum(HTTPServer& http_server, enum OP_MODES op_mode)
     setup_touch_buttons();
     // Start timer for LED pattern updading
     pattern_timer.attach_ms(pattern_interval, on_timer_event, this);
+    // Configure melody player
+    mplayer.set_tempo(64);
 }
 
 Tannenbaum::~Tannenbaum() {
@@ -129,6 +133,12 @@ bool Tannenbaum::toggle_on_off_state() {
     update_all_on_off();
     if(led_state_all_on) {
         http_server.set_template("ON_OFF_BTN_STATE", "");
+        mplayer.play({
+            G, G, L4,E, P, G, F, E,
+            L4,F, L4,E, L4,D, P, C, A, C, C, C, E, E, D, C, L4,D, L4,P, L2,P,
+            F, A, L4,A, P, A, G, F, G, F, L4,E, L4,P, P, E, D, Fs, L4,A, P, D, D, B,
+            L4,A, L4,G, L4,G, L4,P, C, C, A, G, L4,G, L4,F, E, G, G, A, L4,G, L2, P
+        });
     } else {
         http_server.set_template("ON_OFF_BTN_STATE", "btn_off");
     }
@@ -152,29 +162,6 @@ void Tannenbaum::decrease_speed() {
     pattern_timer.attach_ms(pattern_interval, on_timer_event, this);
 }
 
-// void Tannenbaum::play_melody(Melody melody, uint32_t duration, uint8_t octave) {
-
-//     // Cancel possibly running timeout from previous note
-//     tone_timer.detach();
-//     // Setup IO for tone output
-//     ledcAttachPin(23, 15);
-//     ledcWriteNote(15, note, octave);
-//     tone_timer.once_ms(duration, play_stop);
-// }
-
-void Tannenbaum::play(note_t note, uint32_t duration, uint8_t octave) {
-    // Cancel possibly running timeout from previous note
-    tone_timer.detach();
-    // Setup IO for tone output
-    ledcAttachPin(23, 15);
-    ledcWriteNote(15, note, octave);
-    tone_timer.once_ms(duration, play_stop);
-}
-void Tannenbaum::play_stop() {
-    ledcDetachPin(23);
-    ledcWriteTone(15, 0);
-}
-
 ///////////// private
 
 void Tannenbaum::setup_http_interface() {
@@ -183,33 +170,38 @@ void Tannenbaum::setup_http_interface() {
     http_server.register_api_cb("spin_left", [this](){set_mode_spinning(false);});
     http_server.register_api_cb("arrow_up", [this](){set_mode_arrow(true);});
     http_server.register_api_cb("arrow_down", [this](){set_mode_arrow(false);});
-    http_server.register_api_cb("on_off", [this](){toggle_on_off_state();});
-    http_server.register_api_cb("plus", [this](){increase_speed();});
-    http_server.register_api_cb("minus", [this](){decrease_speed();});
+    http_server.register_api_cb("on_off", [this](){
+        toggle_on_off_state();
+        mplayer.play({C, D, E, P, C});
+    });
+    http_server.register_api_cb("plus", [this](){
+        increase_speed();
+        mplayer.play({C, D, L2, E});
+    });
+    http_server.register_api_cb("minus", [this](){
+        decrease_speed();
+        mplayer.play({E, D, L2, C});
+    });
 }
 
 void Tannenbaum::setup_touch_buttons() {
-    buttons.configure_input(TOUCH_IO_LEFT, TOUCH_THRESHOLD_PERCENT, [this](){
+    buttons.configure_input(touch_io_left, touch_threshold_percent, [this](){
         if (op_mode == ALL_ON_OFF) {
             toggle_on_off_state();
         } else {
             decrease_speed();
-            play(NOTE_E, 200);
-            delay(220);
-            play(NOTE_C, 300);
+            mplayer.play({E, D, L2, C});
         }
     });
-    buttons.configure_input(TOUCH_IO_MIDDLE, TOUCH_THRESHOLD_PERCENT, [this](){
+    buttons.configure_input(touch_io_middle, touch_threshold_percent, [this](){
         if (op_mode == ALL_ON_OFF) {
             toggle_on_off_state();
         } else {
             increase_speed();
-            play(NOTE_C, 200);
-            delay(220);
-            play(NOTE_E, 300);
+            mplayer.play({C, D, L2, E});
         }
     });
-    buttons.configure_input(TOUCH_IO_RIGHT, TOUCH_THRESHOLD_PERCENT, [this](){
+    buttons.configure_input(touch_io_right, touch_threshold_percent, [this](){
         switch (op_mode) {
             case LARSON: set_mode_spinning(true); break;
             case SPIN_RIGHT: set_mode_spinning(false); break;
@@ -218,32 +210,26 @@ void Tannenbaum::setup_touch_buttons() {
             case ARROW_DOWN: set_mode_all_on_off(); break;
             case ALL_ON_OFF: set_mode_larson(); break;
         }
-        play(NOTE_E, 200);
-        delay(220);
-        play(NOTE_C, 200);
-        delay(220);
-        play(NOTE_E, 300);
+        mplayer.play({C, D, E, P, C});
     });
     buttons.begin();
 }
 
 void Tannenbaum::init_pwm_gpios() {
     // Setup PWM channels for LEDs
-    ledcSetup(0, PWM_FREQ, 8);
-    ledcSetup(1, PWM_FREQ, 8);
-    ledcSetup(2, PWM_FREQ, 8);
-    ledcSetup(3, PWM_FREQ, 8);
-    ledcSetup(4, PWM_FREQ, 8);
-    ledcSetup(5, PWM_FREQ, 8);
-    ledcSetup(6, PWM_FREQ, 8);
-    ledcSetup(7, PWM_FREQ, 8);
-    ledcSetup(8, PWM_FREQ, 8);
-    ledcSetup(9, PWM_FREQ, 8);
-    ledcSetup(10, PWM_FREQ, 8);
-    ledcSetup(11, PWM_FREQ, 8);
-    ledcSetup(12, PWM_FREQ, 8);
-    // Setup PWM for loudspeaker
-    ledcSetup(15, PWM_FREQ, 10);
+    ledcSetup(0, pwm_freq, 8);
+    ledcSetup(1, pwm_freq, 8);
+    ledcSetup(2, pwm_freq, 8);
+    ledcSetup(3, pwm_freq, 8);
+    ledcSetup(4, pwm_freq, 8);
+    ledcSetup(5, pwm_freq, 8);
+    ledcSetup(6, pwm_freq, 8);
+    ledcSetup(7, pwm_freq, 8);
+    ledcSetup(8, pwm_freq, 8);
+    ledcSetup(9, pwm_freq, 8);
+    ledcSetup(10, pwm_freq, 8);
+    ledcSetup(11, pwm_freq, 8);
+    ledcSetup(12, pwm_freq, 8);
 }
 
 

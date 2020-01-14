@@ -3,27 +3,33 @@
 
 #include "http_server.hpp"
 #include "touch_buttons.hpp"
+#include "melody.hpp"
 
 class Tannenbaum
 {
 public:
     // LED PWM frequency
-    static constexpr double PWM_FREQ = 1000;
+    static constexpr double pwm_freq = 1000;
     // Pre-Defined LED brightness levels.
     // Pins are inverted - 255 => 0%; 0 => 100%
     static constexpr uint8_t led_on = 0;
     static constexpr uint8_t led_dim = 220;
     static constexpr uint8_t led_off = 255;
+    // Audio output
+    static constexpr uint8_t audio_gpio = 23;
+    static constexpr uint8_t audio_pwm_channel = 15;
 
     // Touch button touch detection threshold
-    static constexpr uint8_t TOUCH_THRESHOLD_PERCENT = 94;
+    static constexpr uint8_t touch_threshold_percent = 94;
     // Touch button GPIO pins
-    static constexpr int TOUCH_IO_RIGHT = 3; // GPIO 15
-    static constexpr int TOUCH_IO_MIDDLE = 5; // GPIO 12
-    static constexpr int TOUCH_IO_LEFT = 4; // GPIO 13
+    static constexpr int touch_io_right = 3; // GPIO 15
+    static constexpr int touch_io_middle = 5; // GPIO 12
+    static constexpr int touch_io_left = 4; // GPIO 13
 
     // Operation modes for the application
     enum OP_MODES{LARSON, SPIN_RIGHT, SPIN_LEFT, ARROW_UP, ARROW_DOWN, ALL_ON_OFF};
+
+    MelodyPlayer mplayer;
 
     Tannenbaum(HTTPServer& http_server, enum OP_MODES op_mode);
     ~Tannenbaum();
