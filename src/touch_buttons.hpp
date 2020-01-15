@@ -1,5 +1,5 @@
-#ifndef __TOUCH_BUTTONS_HPP__
-#define __TOUCH_BUTTONS_HPP__
+#ifndef TOUCH_BUTTONS_HPP__
+#define TOUCH_BUTTONS_HPP__
 
 #include <functional>
 #include <Ticker.h>
