@@ -10,11 +10,11 @@ class Tannenbaum
 public:
     // LED PWM frequency
     static constexpr double pwm_freq = 1000;
-    // Pre-Defined LED brightness levels.
-    // Pins are inverted - 255 => 0%; 0 => 100%
-    static constexpr uint8_t led_on = 0;
-    static constexpr uint8_t led_dim = 220;
-    static constexpr uint8_t led_off = 255;
+    // Pre-Defined LED brightness levels with 8-Bit + 1 Digit resolution (?!)
+    // Pins are inverted - 256 => 0%; 0 => 100%
+    static constexpr uint16_t led_on = 0;
+    static constexpr uint16_t led_dim = 220;
+    static constexpr uint16_t led_off = 256;
     // Audio output
     static constexpr uint8_t audio_gpio = 23;
     static constexpr uint8_t audio_pwm_channel = 15;
@@ -76,7 +76,7 @@ private:
     void update_arrow(bool direction);
     void update_all_on_off();
 
-    void rotate_pattern(const uint8_t* pattern, const uint8_t l_pattern,
+    void rotate_pattern(const uint16_t* pattern, const uint8_t l_pattern,
                         const uint8_t n_leds, const uint8_t wrap_length,
                         const bool direction);
 

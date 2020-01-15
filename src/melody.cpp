@@ -16,11 +16,15 @@ MelodyPlayer::~MelodyPlayer() {
     ledcDetachPin(gpio_pin);
 }
 
-void MelodyPlayer::play(Melody melody, uint8_t octave) {
-    octave = octave;
+void MelodyPlayer::play(Melody melody, uint32_t tempo_ms) {
+    if (tempo_ms > 0) {
+        playing_at_custom_tempo = true;
+    } else {
+        tempo_ms = base_tempo_ms;
+    }
     melody_queue = melody;
     is_idle = false;
-    tone_timer.attach_ms(base_tempo_ms, on_tone_timer, this);
+    tone_timer.attach_ms(tempo_ms, on_tone_timer, this);
 }
 
 void MelodyPlayer::increase_tempo() {
@@ -75,6 +79,13 @@ void MelodyPlayer::on_tone_timer(MelodyPlayer* self) {
             ledcDetachPin(self->gpio_pin);
             output_off = true;
             self->is_idle = true;
+            if (self->playing_at_custom_tempo) {
+                // If tempo for the currently playint tune has been set different
+                // than preset tempo, unset temporary tempo and reset timer
+                // to preset tempo.
+                self->playing_at_custom_tempo = false;
+                self->tone_timer.attach_ms(self->base_tempo_ms, on_tone_timer, self);
+            }
             return;
         }
         // Queue is not empty:

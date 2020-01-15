@@ -4,6 +4,7 @@
 #include "info_debug_error.h"
 #include "tannenbaum.hpp"
 
+#define NELEMS(x)  (sizeof(x) / sizeof((x)[0]))
 
 /////////// public
 
@@ -133,12 +134,14 @@ bool Tannenbaum::toggle_on_off_state() {
     update_all_on_off();
     if(led_state_all_on) {
         http_server.set_template("ON_OFF_BTN_STATE", "");
-        mplayer.play({
-            G, G, L4,E, P, G, F, E,
+        mplayer.play(
+            {G, G, L4,E, P, G, F, E,
             L4,F, L4,E, L4,D, P, C, A, C, C, C, E, E, D, C, L4,D, L4,P, L2,P,
             F, A, L4,A, P, A, G, F, G, F, L4,E, L4,P, P, E, D, Fs, L4,A, P, D, D, B,
             L4,A, L4,G, L4,G, L4,P, C, C, A, G, L4,G, L4,F, E, G, G, A, L4,G, L2, P
-        });
+            },
+            196
+        );
     } else {
         http_server.set_template("ON_OFF_BTN_STATE", "btn_off");
     }
@@ -236,9 +239,9 @@ void Tannenbaum::init_pwm_gpios() {
 void Tannenbaum::update_larson() {
     constexpr int n_leds = 7;
     // Pattern is one uint8 value for setting output PWM duty cycle.
-    constexpr uint8_t led_pattern[] = {led_dim, led_on, led_dim};
+    constexpr uint16_t led_pattern[] = {led_dim, led_on, led_dim};
     // Shift is allowed to be -1...5 for 7 LEDs and width-3 pattern
-    constexpr int shift_max = n_leds + 1 - sizeof(led_pattern);
+    constexpr int shift_max = n_leds + 1 - NELEMS(led_pattern);
     static int shift = -1;
     // Current pattern shift direction (left or right)
     static bool is_shifting_right = true;
@@ -246,7 +249,7 @@ void Tannenbaum::update_larson() {
     // Write shifted pattern to LED PWM channels
     for (int i = 0; i < n_leds; ++i) {
         int pattern_index = i - shift;
-        if (pattern_index < 0 || pattern_index >= sizeof(led_pattern)) {
+        if (pattern_index < 0|| pattern_index >= NELEMS(led_pattern)) {
             ledcWrite(i, led_off);
         } else {
             ledcWrite(i, led_pattern[pattern_index]);
@@ -274,27 +277,27 @@ void Tannenbaum::update_larson() {
 void Tannenbaum::update_spinning(bool direction) {
     constexpr int n_leds = 12;
     // Pattern is one uint8 value for setting output PWM duty cycle.
-    constexpr uint8_t led_pattern[] = {led_dim, led_on, led_dim};
+    constexpr uint16_t led_pattern[] = {led_dim, led_on, led_dim};
     // Wrap around a cycle of this many shift positions
     constexpr uint8_t wrap_length = n_leds;
-    rotate_pattern(led_pattern, sizeof(led_pattern), n_leds, wrap_length, direction);
+    rotate_pattern(led_pattern, NELEMS(led_pattern), n_leds, wrap_length, direction);
 }
 
 void Tannenbaum::update_arrow(bool direction) {
     constexpr int n_leds = 7;
     // Pattern is one uint8 value for setting output PWM duty cycle.
-    constexpr uint8_t led_pattern[] = {led_dim, led_on, led_dim};
+    constexpr uint16_t led_pattern[] = {led_dim, led_on, led_dim};
     // Wrap around a cycle of this many shift positions
-    constexpr int wrap_length = n_leds + sizeof(led_pattern);
-    rotate_pattern(led_pattern, sizeof(led_pattern), n_leds, wrap_length, direction);
+    constexpr int wrap_length = n_leds + NELEMS(led_pattern);
+    rotate_pattern(led_pattern, NELEMS(led_pattern), n_leds, wrap_length, direction);
 }
 
 void Tannenbaum::update_all_on_off() {
-    uint8_t pwm_value = led_state_all_on ? led_on : led_off;
+    uint16_t pwm_value = led_state_all_on ? led_on : led_off;
     ledcWrite(0, pwm_value);
 }
 
-void Tannenbaum::rotate_pattern(const uint8_t* pattern, const uint8_t l_pattern,
+void Tannenbaum::rotate_pattern(const uint16_t* pattern, const uint8_t l_pattern,
                                 const uint8_t n_leds, const uint8_t wrap_length,
                                 const bool direction) {
     static int shift = 0;

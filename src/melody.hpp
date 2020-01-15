@@ -6,6 +6,7 @@
 #include <Ticker.h>
 
 // A single musical note [C, D, E, F, G, A, B],
+// plus halve-tones [Cs, Ds, Fs, Gs, As],
 // plus pause sympol [P],
 // plus control symbols for octave shifting up and down [O_UP, O_DOWN],
 // plus control prefixes for the notes making them a
@@ -22,7 +23,8 @@ public:
     MelodyPlayer(uint8_t gpio_pin, uint8_t pwm_channel);
     virtual ~MelodyPlayer();
 
-    void play(Melody melody, uint8_t octave=4);
+    // tempo_ms: Sets tempo only for the currently playing tune.
+    void play(Melody melody, uint32_t tempo_ms=0);
 
     void increase_tempo();
     void decrease_tempo();
@@ -41,8 +43,10 @@ private:
     note_t current_note = NOTE_C;
 
     bool is_idle = true;
-    // base_tempo_ms: Default duration of a sixteenths note in milliseconds
+    // base_tempo_ms: Duration of a sixteenths note in milliseconds
     uint32_t base_tempo_ms = 64;
+    // Is set to true by play() if tempo is changed for a single tune
+    bool playing_at_custom_tempo = false;
     uint8_t octave = 4;
 
     static void on_tone_timer(MelodyPlayer* self);
