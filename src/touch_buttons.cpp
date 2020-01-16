@@ -4,16 +4,15 @@
 //#include "freertos/FreeRTOS.h"
 //#include "freertos/task.h"
 
-//#include "driver/touch_pad.h"
 //#include "soc/rtc_cntl_reg.h"
 //#include "soc/sens_reg.h"
 
 #include "info_debug_error.h"
 #include "touch_buttons.hpp"
 
-static constexpr int DISPATCH_CYCLE_TIME_MS = 100;
-static constexpr int THRESHOLD_INACTIVE = 0;
-static constexpr int FILTER_PERIOD = 10;
+static constexpr int dispatch_cycle_time_ms = 100;
+static constexpr int threshold_inactive = 0;
+static constexpr int filter_period = 10;
 
 //////// ReactiveTouch public:
 
@@ -33,7 +32,7 @@ ReactiveTouch::ReactiveTouch()
     for (int i=0; i<TOUCH_PAD_MAX; ++i) {
         s_pad_enabled[i] = false;
         s_pad_is_pressed[i] = false;
-        s_pad_threshold[i] = THRESHOLD_INACTIVE;
+        s_pad_threshold[i] = threshold_inactive;
         // Inizialization using the default constructor of std::function
         s_pad_callback[i] = {};
     }
@@ -71,15 +70,15 @@ void ReactiveTouch::calibrate_thresholds() {
 void ReactiveTouch::begin() {
     for (int i=0; i<TOUCH_PAD_MAX; ++i) {
         if (s_pad_enabled[i]) {
-            touch_pad_config(static_cast<touch_pad_t>(i), THRESHOLD_INACTIVE);
+            touch_pad_config(static_cast<touch_pad_t>(i), threshold_inactive);
         }
     }
     // Initialize and start a software filter to detect slight change of capacitance.
-    touch_pad_filter_start(FILTER_PERIOD);
+    touch_pad_filter_start(filter_period);
     touch_pad_set_filter_read_cb(filter_read_cb);
     // Set threshold
     calibrate_thresholds();
-    event_timer.attach_ms(DISPATCH_CYCLE_TIME_MS, dispatch_callbacks, this);
+    event_timer.attach_ms(dispatch_cycle_time_ms, dispatch_callbacks, this);
 }
 
 void ReactiveTouch::diagnostics() {

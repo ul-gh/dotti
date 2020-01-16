@@ -2,6 +2,7 @@
 #define TOUCH_BUTTONS_HPP__
 
 #include <functional>
+#include <driver/touch_pad.h>
 #include <Ticker.h>
 
 using CallbackT = std::function<void(void)>;
