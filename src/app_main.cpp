@@ -16,7 +16,6 @@ HTTPServer* http_server;
 Tannenbaum* tannenbaum;
 
 void setup() {
-    pinMode
     //esp_log_level_set("*", ESP_LOG_DEBUG);
     Serial.begin(serial_baudrate);
     //setup_wifi_station();
