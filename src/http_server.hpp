@@ -3,13 +3,13 @@
  * Based on ESPAsyncWebServer, see:
  * https://github.com/me-no-dev/ESPAsyncWebServer
  */
-#ifndef __HTTP_SERVER_HPP__
-#define __HTTP_SERVER_HPP__
+#ifndef HTTP_SERVER_HPP__
+#define HTTP_SERVER_HPP__
 
 #include <map>
 #include <functional>
 
-#include <Arduino.h>
+//#include <Arduino.h>
 #include <Ticker.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
@@ -29,11 +29,11 @@ using CmdMapT = std::map<String, CbStringT>;
 // String replacement mapping for template processor
 using TemplateMapT = std::map<String, String>;
 
-class HTTPServer
+class APIServer
 {
 public:
     // Base ESPAsyncWebServer
-    AsyncWebServer backend;
+    AsyncWebServer* backend;
     // Server-Sent Events (SSE) for "PUSH" updates of application data
     AsyncEventSource* event_source;
     // Callback registry, see above
@@ -43,8 +43,8 @@ public:
     // Polled in main loop
     bool reboot_requested;
     
-    HTTPServer(void);
-    ~HTTPServer();
+    APIServer(AsyncWebServer* http_backend);
+    ~APIServer();
 
     // Set an entry in the template processor string <=> string mapping 
     void set_template(const char* placeholder, const char* replacement);
@@ -64,8 +64,13 @@ public:
     // Overload for void callbacks
     void register_api_cb(const char* cmd_name, CbVoidT cmd_callback);
 
-    // Start execution
+    // Start execution, includes starting the ESPAsyncWebServer backend.
+    // Do not call this when using WifiManger or when backend has been
+    // activated before by other means
     void begin();
+
+    // Start execution, assuming the backend server is started elsewhere
+    void activate_default_callbacks();
 
 
 private:
@@ -74,13 +79,10 @@ private:
 
     // Timer update for heartbeats, reboot etc
     // Static function wraps member function to obtain C API callback
-    static void on_timer_event(HTTPServer* self);
+    static void on_timer_event(APIServer* self);
 
     // Sever-Sent Event Source
     void register_sse_callbacks();
-
-    // Normal HTTP request handlers
-    void register_default_callbacks();
 
     // Template processor
     String templateProcessor(const String& placeholder);
@@ -108,7 +110,7 @@ private:
     static void onUpload(AsyncWebServerRequest *request, const String& filename,
         size_t index, uint8_t *data, size_t len, bool final);
 
-}; // class HTTPServer
+}; // class APIServer
 
 #ifdef __WORK_IN_PROGRESS__
 // Handler for captive portal page, only active when in access point mode.

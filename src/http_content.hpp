@@ -1,9 +1,9 @@
-#include <Arduino.h>
-
 // Display the HTML web page
 // For the ESP32, immutable data is automatically stored in FLASH, on the
-// ESP8266 whis would be: const char INDEX_HTML[] PROGMEM = ...
-constexpr const char INDEX_HTML[] =
+// ESP8266 whis would be:
+// #include <Arduino.h>
+// const char INDEX_HTML[] PROGMEM = ...
+constexpr const char index_html[] =
     "<!DOCTYPE html>"
     "<html>"
     "<head>"
@@ -39,4 +39,4 @@ constexpr const char INDEX_HTML[] =
     "\n";
 
 // Return HTML for API homepage
-constexpr const char* API_RETURN_HTML = INDEX_HTML;
+constexpr const char* api_return_html = index_html;

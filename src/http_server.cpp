@@ -15,48 +15,49 @@
 #include "http_server_config.hpp"
 #include "http_content.hpp"
 
-///////////// HTTPServer:: public
+///////////// APIServer:: public
 
-HTTPServer::HTTPServer()
+APIServer::APIServer(AsyncWebServer* http_backend)
     // public
-    : backend{PORT}
+    : backend{http_backend}
     , event_source{nullptr}
     , reboot_requested{false}
     , event_timer{}
 {   
-    if (MOUNT_SPIFFS) {
+    if (mount_spiffs_requested) {
         if (!SPIFFS.begin(true)) {
             error_print("Error mounting SPI Flash File System");
         }
     }
-    event_timer.attach_ms(HEARTBEAT_INTERVAL, on_timer_event, this);
+    event_timer.attach_ms(heartbeat_interval, on_timer_event, this);
 }
 
-HTTPServer::~HTTPServer() {
+APIServer::~APIServer() {
     event_timer.detach();
+    free(event_source);
 }
 
 // Set an entry in the template processor string <=> string mapping 
-void HTTPServer::set_template(const char* placeholder, const char* replacement) {
-    if (!USE_TEMPLATES) {
+void APIServer::set_template(const char* placeholder, const char* replacement) {
+    if (!template_processing_activated) {
         error_print("ERROR: template processing must be activated!");
         return;
     };
     template_map[String(placeholder)] = String(replacement);
 }
 
-void HTTPServer::activate_events_on(const char* endpoint) {
+void APIServer::activate_events_on(const char* endpoint) {
     event_source = new AsyncEventSource(endpoint);
     register_sse_callbacks();
 }
 
-void HTTPServer::register_api_cb(const char* cmd_name,
+void APIServer::register_api_cb(const char* cmd_name,
                                  CbStringT cmd_callback) {
     cmd_map[cmd_name] = cmd_callback;
     debug_print_sv("Registered String command: ", cmd_name);
 }
 
-void HTTPServer::register_api_cb(const char* cmd_name,
+void APIServer::register_api_cb(const char* cmd_name,
                                  CbFloatT cmd_callback) {
     cmd_map[cmd_name] = [cmd_callback](const String& value) {
         // Arduino String.toFloat() defaults to zero for invalid string, hmm...
@@ -65,7 +66,7 @@ void HTTPServer::register_api_cb(const char* cmd_name,
     debug_print_sv("Registered float command: ", cmd_name);
 }
 
-void HTTPServer::register_api_cb(const char* cmd_name,
+void APIServer::register_api_cb(const char* cmd_name,
                                  CbIntT cmd_callback) {
     cmd_map[cmd_name] = [cmd_callback](const String& value) {
         // Arduino String.toFloat() defaults to zero for invalid string, hmm...
@@ -74,7 +75,7 @@ void HTTPServer::register_api_cb(const char* cmd_name,
     debug_print_sv("Registered int command: ", cmd_name);
 }
 
-void HTTPServer::register_api_cb(const char* cmd_name,
+void APIServer::register_api_cb(const char* cmd_name,
                                  CbVoidT cmd_callback) {
     cmd_map[cmd_name] = [cmd_callback](const String& value) {
         cmd_callback();
@@ -82,18 +83,67 @@ void HTTPServer::register_api_cb(const char* cmd_name,
     debug_print_sv("Registered void command:", cmd_name);
 }
 
-void HTTPServer::begin() {
-    register_default_callbacks();
-    backend.begin();
+void APIServer::begin() {
+    activate_default_callbacks();
+    backend->begin();
+}
+
+// Normal HTTP request handlers
+void APIServer::activate_default_callbacks() {
+    // Serve static HTML and related files content
+    if (mount_spiffs_requested) {
+        auto handler = backend->serveStatic("/", SPIFFS, "/www/")
+                              .setDefaultFile(index_html_filename);
+        if (template_processing_activated) {
+            handler = handler.setTemplateProcessor(
+                [this](const String &placeholder) {
+                    return templateProcessor(placeholder);
+                }
+            );
+        }
+        if (http_auth_requested) {
+            handler.setAuthentication(http_user, http_pass);
+        }
+    } else {
+        // Route for main application home page
+        backend->on("/", HTTP_GET, [this](AsyncWebServerRequest *request) {
+                onRootRequest(request);
+            }
+        );
+    }
+    // Route for REST API
+    //using namespace std::placeholders;
+    //on("/cmd", HTTP_GET, std::bind(&APIServer::onCmdRequest, this, _1));
+    backend->on(api_endpoint, HTTP_GET, [this](AsyncWebServerRequest *request) {
+            onCmdRequest(request);
+        }
+    );
+    // respond to GET requests on URL /heap
+    backend->on("/heap", HTTP_GET, [](AsyncWebServerRequest *request) {
+            request->send(200, "text/plain", String(ESP.getFreeHeap()));
+       }
+    );
+    // OTA Firmware Upgrade, see form method in data/www/upload.html
+    backend->on("/update", HTTP_POST, [this](AsyncWebServerRequest *request) {
+            onUpdateRequest(request);
+       },
+       onUpdateUploadBody
+    );
+    backend->onNotFound(onRequest);
+    backend->onFileUpload(onUpload);
+    backend->onRequestBody(onBody);
+    // Handler called when any DNS query is made via access point
+    // addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);
+    debug_print("Default callbacks set up");
 }
 
 
-///////// HTTPServer:: private
+///////// APIServer:: private
 
 // Timer update for heartbeats, reboot etc
 // Static function wraps member function to obtain C API callback
-void HTTPServer::on_timer_event(HTTPServer* self) {
-    if (SEND_HEARTBEATS && self->event_source != nullptr) {
+void APIServer::on_timer_event(APIServer* self) {
+    if (sending_heartbeats && self->event_source != nullptr) {
         self->event_source->send("OK", "heartbeat");
     }
     if (self->reboot_requested) {
@@ -104,7 +154,7 @@ void HTTPServer::on_timer_event(HTTPServer* self) {
 }
 
 // Sever-Sent Event Source
-void HTTPServer::register_sse_callbacks() {
+void APIServer::register_sse_callbacks() {
     event_source->onConnect([](AsyncEventSourceClient *client) {
         if(client->lastId()){
             info_print_sv("Client connected! Last msg ID:", client->lastId());
@@ -117,61 +167,11 @@ void HTTPServer::register_sse_callbacks() {
     //if (USE_AUTH) {
     //    event_source.setAuthentication(http_user, http_pass);
     //}
-    backend.addHandler(event_source);
+    backend->addHandler(event_source);
 }
-
-// Normal HTTP request handlers
-void HTTPServer::register_default_callbacks() {
-    // Serve static HTML and related files content
-    if (MOUNT_SPIFFS) {
-        auto handler = backend.serveStatic("/", SPIFFS, "/www/")
-                              .setDefaultFile(INDEX_HTML_FILENAME);
-        if (USE_TEMPLATES) {
-            handler = handler.setTemplateProcessor(
-                [this](const String &placeholder) {
-                    return templateProcessor(placeholder);
-                }
-            );
-        }
-        if (USE_AUTH) {
-            handler.setAuthentication(HTTP_USER, HTTP_PASS);
-        }
-    } else {
-        // Route for main application home page
-        backend.on("/", HTTP_GET, [this](AsyncWebServerRequest *request) {
-                onRootRequest(request);
-            }
-        );
-    }
-    // Route for REST API
-    //using namespace std::placeholders;
-    //on("/cmd", HTTP_GET, std::bind(&HTTPServer::onCmdRequest, this, _1));
-    backend.on(API_ENDPOINT, HTTP_GET, [this](AsyncWebServerRequest *request) {
-            onCmdRequest(request);
-        }
-    );
-    // respond to GET requests on URL /heap
-    backend.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request) {
-            request->send(200, "text/plain", String(ESP.getFreeHeap()));
-       }
-    );
-    // OTA Firmware Upgrade, see form method in data/www/upload.html
-    backend.on("/update", HTTP_POST, [this](AsyncWebServerRequest *request) {
-            onUpdateRequest(request);
-       },
-       onUpdateUploadBody
-    );
-    backend.onNotFound(onRequest);
-    backend.onFileUpload(onUpload);
-    backend.onRequestBody(onBody);
-    // Handler called when any DNS query is made via access point
-    // addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);
-    debug_print("Default callbacks set up");
-}
-
 
 // Template processor
-String HTTPServer::templateProcessor(const String& placeholder)
+String APIServer::templateProcessor(const String& placeholder)
 {
     auto template_iterator = template_map.find(placeholder);
         if (template_iterator == template_map.end()) {
@@ -184,23 +184,23 @@ String HTTPServer::templateProcessor(const String& placeholder)
 }
 
 // on("/")
-void HTTPServer::onRootRequest(AsyncWebServerRequest *request) {
-    if (!MOUNT_SPIFFS) {
+void APIServer::onRootRequest(AsyncWebServerRequest *request) {
+    if (!mount_spiffs_requested) {
         // Static content is handled by default handler for static content
-        if (USE_TEMPLATES) {
-            request->send_P(200, "text/html", INDEX_HTML,
+        if (template_processing_activated) {
+            request->send_P(200, "text/html", index_html,
                             [this](const String& placeholder) {
                                 return templateProcessor(placeholder);
                             }
             );
         } else {
-            request->send_P(200, "text/html", INDEX_HTML);
+            request->send_P(200, "text/html", index_html);
         }
     }
 }
 
 // on("/cmd")
-void HTTPServer::onCmdRequest(AsyncWebServerRequest *request) {
+void APIServer::onCmdRequest(AsyncWebServerRequest *request) {
     int n_params = request->params();
     debug_print_sv("Number of parameters received:", n_params);
     for (int i = 0; i < n_params; ++i) {
@@ -222,26 +222,26 @@ void HTTPServer::onCmdRequest(AsyncWebServerRequest *request) {
         // Finally call callback
         cmd_callback(value_str);
     }
-    if (API_IS_AJAX) {
+    if (api_is_ajax) {
         // For AJAX interface: Return a plain string, default is empty string.
-        request->send(200, "text/plain", AJAX_RETURN_TEXT);
-    } else if (!MOUNT_SPIFFS) {
+        request->send(200, "text/plain", ajax_return_text);
+    } else if (!mount_spiffs_requested) {
         // Static content is handled by default handler for static content
-        if (USE_TEMPLATES) {
-            request->send_P(200, "text/html", API_RETURN_HTML,
+        if (template_processing_activated) {
+            request->send_P(200, "text/html", api_return_html,
                             [this](const String& placeholder) {
                                 return templateProcessor(placeholder);
                             }
             );
         } else {
-            request->send_P(200, "text/html", API_RETURN_HTML);
+            request->send_P(200, "text/html", api_return_html);
         }
     }
 }
 
 // on("/update")
 // When update is initiated via GET
-void HTTPServer::onUpdateRequest(AsyncWebServerRequest *request) {
+void APIServer::onUpdateRequest(AsyncWebServerRequest *request) {
     reboot_requested = !Update.hasError();
     AsyncWebServerResponse *response = request->beginResponse(
         200, "text/plain", reboot_requested ? "OK" : "FAIL");
@@ -249,7 +249,7 @@ void HTTPServer::onUpdateRequest(AsyncWebServerRequest *request) {
     request->send(response);
 }
 // When file is uploaded via POST request
-void HTTPServer::onUpdateUploadBody(
+void APIServer::onUpdateUploadBody(
         AsyncWebServerRequest *request, const String& filename,
         size_t index, uint8_t *data, size_t len, bool final) {
     if(!index) {
@@ -276,17 +276,17 @@ void HTTPServer::onUpdateUploadBody(
 
 /* Catch-All-Handlers
  */
-void HTTPServer::onRequest(AsyncWebServerRequest *request) {
+void APIServer::onRequest(AsyncWebServerRequest *request) {
     //Handle Unknown Request
     request->send(404);
 }
 
-void HTTPServer::onBody(AsyncWebServerRequest *request,
+void APIServer::onBody(AsyncWebServerRequest *request,
         uint8_t *data, size_t len, size_t index, size_t total) {
     //Handle body
 }
 
-void HTTPServer::onUpload(AsyncWebServerRequest *request, const String& filename,
+void APIServer::onUpload(AsyncWebServerRequest *request, const String& filename,
         size_t index, uint8_t *data, size_t len, bool final) {
     //Handle upload
 }

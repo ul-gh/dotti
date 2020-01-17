@@ -1,37 +1,49 @@
 #include <functional>
 #include <Arduino.h>
+#include <FreeRTOS.h>
 #include <Ticker.h>
 #include "esp32-hal-log.h"
 
 //#include "info_debug_error.h"
-#include "wifi_setup.hpp"
+//include "wifi_setup.hpp"
 #include "http_server.hpp"
+#include "ESPAsyncWiFiManager.h"
 #include "tannenbaum.hpp"
 
 constexpr unsigned long serial_baudrate = 115200;
+// TCP socket port number
+constexpr uint16_t tcp_port = 80;
+
+// ESPAsyncWebserver must be one single instance
+AsyncWebServer http_backend{tcp_port};
+// DNS resolution for captive portal page etc.
+DNSServer* dns_server;
+// Wifi connection manager
+AsyncWiFiManager* wifi_manager;
 
 // HTTP server provides REST API + HTML5 AJAX web interface on port 80
-HTTPServer* http_server;
-
+APIServer* api_server;
+// Der Tannenbaum
 Tannenbaum* tannenbaum;
 
 void setup() {
     //esp_log_level_set("*", ESP_LOG_DEBUG);
     Serial.begin(serial_baudrate);
     //setup_wifi_station();
-    setup_wifi_hostap();
-    delay(300);
-    http_server = new HTTPServer{};
-    tannenbaum = new Tannenbaum{*http_server, Tannenbaum::LARSON};
-    http_server->activate_events_on("/events");
-    http_server->begin();
+    //setup_wifi_hostap();
+    //delay(300);
+    dns_server = new DNSServer{};
+    wifi_manager = new AsyncWiFiManager{&http_backend, dns_server};
+    //wifi_manager->resetSettings();
+    //wifi_manager->startConfigPortal("Tannenbaum_Access_Point");
+    wifi_manager->autoConnect("Tannenbaum_Access_Point");
+    wifi_manager->setConfigPortalTimeout(180);
+    api_server = new APIServer{&http_backend};
+    tannenbaum = new Tannenbaum{*api_server, Tannenbaum::LARSON};
+    api_server->activate_events_on("/events");
+    api_server->activate_default_callbacks();
 }
 
 void loop() {
-    //static bool wifi_initialised = false;
-    //if (!wifi_initialised && wifi_handle_state_change() == NEW_CONNECTION) {
-    //    http_server->activate_events_on("/events");
-    //    http_server->begin();
-    //    wifi_initialised = true;
-    //}
+    //dns_server->processNextRequest();
 }

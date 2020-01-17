@@ -31,7 +31,7 @@ public:
 
     MelodyPlayer mplayer;
 
-    Tannenbaum(HTTPServer& http_server, enum OP_MODES op_mode);
+    Tannenbaum(APIServer& http_server, enum OP_MODES op_mode);
     ~Tannenbaum();
 
     void set_mode_larson();
@@ -51,7 +51,7 @@ public:
 
 private:
     // HTTP API server
-    HTTPServer& http_server;
+    APIServer& http_server;
 
     // Touch button interface
     ReactiveTouch buttons;

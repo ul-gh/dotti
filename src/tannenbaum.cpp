@@ -8,7 +8,7 @@
 
 /////////// public
 
-Tannenbaum::Tannenbaum(HTTPServer& http_server, enum OP_MODES op_mode)
+Tannenbaum::Tannenbaum(APIServer& http_server, enum OP_MODES op_mode)
     // public
     : mplayer{Tannenbaum::audio_gpio, Tannenbaum::audio_pwm_channel}
     // private
