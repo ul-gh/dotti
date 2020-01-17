@@ -1,6 +1,7 @@
 #include <functional>
 #include <Arduino.h>
-#include <FreeRTOS.h>
+#include <WiFi.h>
+//#include <FreeRTOS.h>
 #include <Ticker.h>
 #include "esp32-hal-log.h"
 
