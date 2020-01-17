@@ -8,11 +8,11 @@
 #include <FS.h>
 
 // Activate incomplete features..
-//#define __WORK_IN_PROGRESS__
+//#define WORK_IN_PROGRESS__
 
 #include "info_debug_error.h"
-#include "http_server.hpp"
-#include "http_server_config.hpp"
+#include "api_server.hpp"
+#include "api_server_config.hpp"
 #include "http_content.hpp"
 
 ///////////// APIServer:: public
@@ -291,7 +291,7 @@ void APIServer::onUpload(AsyncWebServerRequest *request, const String& filename,
     //Handle upload
 }
 
-#ifdef __WORK_IN_PROGRESS__
+#ifdef WORK_IN_PROGRESS__
 /* Handler for captive portal page, only active when in access point mode
 */
 CaptiveRequestHandler::CaptiveRequestHandler() {}

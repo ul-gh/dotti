@@ -1,10 +1,10 @@
-/* AJAX HTTP server for ESP32 IoT
+/* AJAX HTTP API server for ESP32
  *
  * Based on ESPAsyncWebServer, see:
  * https://github.com/me-no-dev/ESPAsyncWebServer
  */
-#ifndef HTTP_SERVER_HPP__
-#define HTTP_SERVER_HPP__
+#ifndef API_SERVER_HPP__
+#define API_SERVER_HPP__
 
 #include <map>
 #include <functional>
